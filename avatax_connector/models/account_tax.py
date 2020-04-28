@@ -85,6 +85,16 @@ class AccountTax(models.Model):
                                      exemption_code_name,
                                      user and user.name or None, commit, invoice_date, reference_code,
                                      location_code, currency_code, partner.vat_id or None, is_override)
+        if doc_type == 'SalesOrder' or 'SalesInvoice':
+            taxline_amt = []
+            for taxline in result.TaxLines.TaxLine:
+                taxline_amt.append(taxline.TaxCalculated)
+            count = 0
+            if len(lines) == len(taxline_amt):
+                for line in lines:
+                    if 'tax_amt' in line.get('id'):
+                        line.get('id').write({'tax_amt': taxline_amt[count]})
+                    count += 1
         return result
 
     @api.model

@@ -330,9 +330,21 @@ class AccountMove(models.Model):
             })
         return lines
 
-    def action_post(self):
-        self.avatax_compute_taxes(commit_avatax=True)
-        super().action_post()
+    def post(self):
+        # We should compute taxes before posting the invoice, to ensure correct account moves
+        # We can only commit to Avatax after posting the invoice, because we need the generated Invoice number
+        for invoice in self.filtered(lambda m: m.type == 'out_invoice'):
+            to_write = {}
+            if self.name == '/':
+                # Get the journal's sequence.
+                sequence = invoice._get_sequence()
+                if not sequence:
+                    raise UserError(_('Please define a sequence on your journal.'))
+                # Consume a new number.
+                to_write['name'] = sequence.next_by_id(sequence_date=self.date)
+            invoice.write(to_write)
+            invoice.avatax_compute_taxes(commit_avatax=True)
+        return super(AccountMove, self).post()
 
     def _reverse_move_vals(self, default_values, cancel=True):
         # OVERRIDE
